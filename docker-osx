@@ -39,7 +39,7 @@ log() {
 }
 
 err() {
-  echo "[`date +"%Y-%m-%d %H:%M:%S"`] ERROR: ${*}" >2
+  echo "[`date +"%Y-%m-%d %H:%M:%S"`] ERROR: ${*}" >&2
   exit 1
 }
 
@@ -80,7 +80,7 @@ init() {
   BOOT2DOCKER_ISO="${DOCKER_VM_CWD}/boot2docker.iso"
 
   log "Creating VM $DOCKER_VM_NAME"
-  $VBM createvm --name $DOCKER_VM_NAME --register
+  $VBM createvm --name $DOCKER_VM_NAME --register >/dev/null 2>&1
 
   log "Setting VM settings"
   $VBM modifyvm $DOCKER_VM_NAME \
@@ -117,12 +117,12 @@ init() {
     $VBM closemedium disk $VM_DISK
   else
     log "Creating $VM_DISK_SIZE hard drive..."
-    $VBM createhd --format VMDK --filename $VM_DISK --size $VM_DISK_SIZE
+    $VBM createhd --format VMDK --filename $VM_DISK --size $VM_DISK_SIZE >/dev/null 2>&1
   fi
 
-  $VBM storagectl $DOCKER_VM_NAME --name "SATA" --add sata --hostiocache on
-  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 0 --device 0 --type dvddrive --medium $BOOT2DOCKER_ISO
-  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 1 --device 0 --type hdd --medium $VM_DISK
+  $VBM storagectl $DOCKER_VM_NAME --name "SATA" --add sata --hostiocache on >/dev/null 2>&1
+  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 0 --device 0 --type dvddrive --medium $BOOT2DOCKER_ISO >/dev/null 2>&1
+  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 1 --device 0 --type hdd --medium $VM_DISK >/dev/null 2>&1
 
   log "Done."
 }
@@ -130,7 +130,7 @@ init() {
 delete() {
   if vm_exists; then
     log "Deleting VM ${DOCKER_VM_NAME}"
-    $VBM unregistervm $DOCKER_VM_NAME --delete >/dev/null
+    $VBM unregistervm $DOCKER_VM_NAME --delete >/dev/null 2>&1
   else
     log "The VM doesn't exist"
   fi
@@ -155,7 +155,7 @@ start() {
 
   if ! vm_is_running; then
     log "Starting $DOCKER_VM_NAME..."
-    $VBM startvm $DOCKER_VM_NAME --type headless > /dev/null &
+    $VBM startvm $DOCKER_VM_NAME --type headless >/dev/null &
     wait_vm
     log "Started."
   else
@@ -175,7 +175,7 @@ stop() {
       log "virtual machine ${DOCKER_VM_NAME} is not running."
     else
       log "Shutting down virtual machine $DOCKER_VM_NAME..."
-      $VBM controlvm $DOCKER_VM_NAME poweroff >/dev/null
+      $VBM controlvm $DOCKER_VM_NAME poweroff >/dev/null 2>&1
     fi
 
     if [ $# -eq 1 ] && [ "$1" = "--delete" ]; then
