@@ -153,7 +153,7 @@ start() {
     init
   fi
 
-  if ! is_running; then
+  if ! vm_is_running; then
     log "Starting $DOCKER_VM_NAME..."
     $VBM startvm $DOCKER_VM_NAME --type headless > /dev/null &
     wait_vm
@@ -170,15 +170,19 @@ wait_vm() {
 }
 
 stop() {
-  if is_running; then
-    log "Shutting down $DOCKER_VM_NAME..."
-    $VBM controlvm $DOCKER_VM_NAME poweroff > /dev/null
-  else
-    log "$DOCKER_VM_NAME is not running."
-  fi
+  if vm_exists; then
+    if vm_is_stopped; then
+      log "virtual machine ${DOCKER_VM_NAME} is not running."
+    else
+      log "Shutting down virtual machine $DOCKER_VM_NAME..."
+      $VBM controlvm $DOCKER_VM_NAME poweroff >/dev/null
+    fi
 
-  if [ $# -eq 1 ] && [ "$1" = "--delete" ]; then
-    delete
+    if [ $# -eq 1 ] && [ "$1" = "--delete" ]; then
+      delete
+    fi
+  else
+    err "virtual machine ${DOCKER_VM_NAME} does not exist, nothing to do."
   fi
 }
 
@@ -190,16 +194,16 @@ info() {
   $VBM showvminfo $DOCKER_VM_NAME
 }
 
-is_running() {
+vm_is_running() {
   info | grep "State:\s\+running" > /dev/null
 }
 
-is_stopped() {
+vm_is_stopped() {
   info | grep "State:\s\+powered off" > /dev/null
 }
 
 status() {
-  if is_running; then
+  if vm_is_running; then
     log "$DOCKER_VM_NAME is running."
     exit 0
   else
