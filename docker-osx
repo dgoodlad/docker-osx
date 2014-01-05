@@ -50,10 +50,12 @@ fi
 
 help() {
   echo "docker-osx commands:"
-  echo "    start     Start local docker virtual machine"
-  echo "    stop      Halt docker daemon and virtual machine"
-  echo "    info      VirtualBox virtual machine information"
-  echo "    shell     Open a shell with Docker VM started and environnement set"
+  echo "    start [--pristine]    Start local docker virtual machine"
+  echo "    stop                  Halt docker daemon and virtual machine"
+  echo "    info                  VirtualBox virtual machine information"
+  echo "    shell                 Open a shell with Docker VM started and environnement set"
+  echo ""
+  echo "    Anything else is assumed to be a docker command and will be run on the virtual machine with `docker <args>'"
   echo ""
 }
 
@@ -139,6 +141,10 @@ do_ssh() {
 }
 
 start() {
+  if [ $# -eq 1 ] && [ "$1" = "--pristine" ]; then
+    delete
+  fi
+
   if ! vm_exists; then
     init
   fi
