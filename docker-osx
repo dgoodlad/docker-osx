@@ -241,6 +241,8 @@ case $1 in
   info) info;;
 
   shell) do_ssh;;
+
   help) help;;
-  *) do_ssh "docker $@"
+
+  *) ./docker -H "$DOCKER_HOST" "$@";;
 esac
