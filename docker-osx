@@ -45,8 +45,10 @@ err() {
   exit 1
 }
 
-log "Creating ${DOCKER_VM_CWD}"
-mkdir -p "$DOCKER_VM_CWD"
+if [ ! -d $DOCKER_VM_CWD ]; then
+  log "Creating ${DOCKER_VM_CWD}"
+  mkdir -p "$DOCKER_VM_CWD"
+fi
 
 ##########
 setup_etc_host() {
