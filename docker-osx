@@ -98,11 +98,6 @@ init() {
     --nictype1 $VM_NIC \
     --cableconnected1 on
 
-  # log "Deleting VM NAT"
-  # $VBM modifyvm $DOCKER_VM_NAME \
-    # --natpf1 delete "ssh" \
-    # --natpf1 delete "docker"
-
   log "Creating VM NAT"
   $VBM modifyvm $DOCKER_VM_NAME \
     --natpf1 "ssh,tcp,127.0.0.1,$DOCKER_VM_SSH_PORT,,22" \
@@ -114,7 +109,6 @@ init() {
   fi
 
   log "Setting VM disks"
-  # $VBM storagectl $DOCKER_VM_NAME --name "SATA" --remove
 
   if [ -f $VM_DISK ]; then
     log "$VM_DISK was open, closing"
