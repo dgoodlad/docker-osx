@@ -34,7 +34,7 @@ export DOCKER_VM_CWD="$HOME/.docker-osx"
 export VBM="VBoxManage"
 
 export DOCKER_BIN="$(dirname $0)/docker"
-export DOCKER_HOST="tcp://$DOCKER_IP:$DOCKER_PORT"
+export DOCKER_HOST="tcp://localhost:$DOCKER_PORT"
 
 log() {
   echo "[`date +"%Y-%m-%d %H:%M:%S"`] ${*}"
@@ -50,7 +50,6 @@ if [ ! -d $DOCKER_VM_CWD ]; then
   mkdir -p "$DOCKER_VM_CWD"
 fi
 
-##########
 setup_etc_host() {
   if [ -f "$DOCKER_VM_CWD/.localdocker-host" ] && [ `cat "$DOCKER_VM_CWD/.localdocker-host"` = "0" ]
   then
@@ -174,6 +173,10 @@ do_ssh() {
 }
 
 start() {
+  if ! vm_exists; then
+    init
+  fi
+
   if ! is_running; then
       if is_paused; then
         log "Resuming $DOCKER_VM_NAME"
@@ -221,6 +224,10 @@ restart() {
   else
     start
   fi
+}
+
+vm_exists() {
+  $VBM list vms | grep "\"docker-boot2docker\"" >/dev/null
 }
 
 info() {
