@@ -55,7 +55,7 @@ help() {
   echo "    info                  VirtualBox virtual machine information"
   echo "    shell                 Open a shell with Docker VM started and environnement set"
   echo ""
-  echo "    Anything else is assumed to be a docker command and will be run on the virtual machine with `docker <args>'"
+  echo "    Anything else is assumed to be a docker command and will be run on the virtual machine with \`docker <args>\'"
   echo ""
 }
 
