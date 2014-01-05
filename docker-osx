@@ -150,17 +150,10 @@ start() {
   fi
 
   if ! is_running; then
-      if is_paused; then
-        log "Resuming $DOCKER_VM_NAME"
-        $VBM controlvm $DOCKER_VM_NAME resume > /dev/null
-        wait_vm
-        log "Resumed."
-      else
-        log "Starting $DOCKER_VM_NAME..."
-        $VBM startvm $DOCKER_VM_NAME --type headless > /dev/null &
-        wait_vm
-        log "Started."
-    fi
+    log "Starting $DOCKER_VM_NAME..."
+    $VBM startvm $DOCKER_VM_NAME --type headless > /dev/null &
+    wait_vm
+    log "Started."
   else
     log "$DOCKER_VM_NAME is already running."
   fi
@@ -170,15 +163,6 @@ wait_vm() {
   while ! echo "ping" | nc localhost $DOCKER_VM_SSH_PORT >/dev/null 2>&1; do
     sleep 1
   done
-}
-
-pause() {
-  if is_running; then
-    log "Pausing $DOCKER_VM_NAME..."
-    $VBM controlvm $DOCKER_VM_NAME pause > /dev/null
-  else
-    log "$DOCKER_VM_NAME is not running."
-  fi
 }
 
 stop() {
@@ -202,10 +186,6 @@ is_running() {
   info | grep "State:\s\+running" > /dev/null
 }
 
-is_paused() {
-  info | grep "State:\s\+paused" > /dev/null
-}
-
 is_stopped() {
   info | grep "State:\s\+powered off" > /dev/null
 }
@@ -214,9 +194,6 @@ status() {
   if is_running; then
     log "$DOCKER_VM_NAME is running."
     exit 0
-  elif is_paused; then
-    log "$DOCKER_VM_NAME is suspended."
-    exit 1
   else
     log "$DOCKER_VM_NAME is stopped."
     exit 1
