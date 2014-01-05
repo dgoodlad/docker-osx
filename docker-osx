@@ -20,22 +20,37 @@
 
 set -e
 
-export VAGRANT_CWD="$HOME/.docker-osx"
-
 export DOCKER_IP="172.16.42.43"
 export DOCKER_DOMAIN="localdocker"
 export DOCKER_PORT="4243"
 
 export DOCKER_VERSION="0.7.3"
 export DOCKER_CLIENT_URL="http://get.docker.io/builds/Darwin/x86_64/docker-0.7.3.tgz"
-export VAGRANT_BOX_URL="http://static.orchardup.com/binaries/vagrant/vagrant-docker-0.7.2-virtualbox.box"
+
+export DOCKER_VM_NAME="docker-boot2docker"
+export DOCKER_VM_SSH_PORT="2022"
+export DOCKER_VM_CWD="$HOME/.docker-osx"
+
+export VBM="VBoxManage"
 
 export DOCKER_BIN="$(dirname $0)/docker"
 export DOCKER_HOST="tcp://$DOCKER_IP:$DOCKER_PORT"
 
+log() {
+  echo "[`date +"%Y-%m-%d %H:%M:%S"`] ${*}"
+}
+
+err() {
+  echo "[`date +"%Y-%m-%d %H:%M:%S"`] ERROR: ${*}"
+  exit 1
+}
+
+log "Creating ${DOCKER_VM_CWD}"
+mkdir -p "$DOCKER_VM_CWD"
+
 ##########
-function setup_etc_host {
-  if [ -f "$VAGRANT_CWD/.localdocker-host" ] && [ `cat "$VAGRANT_CWD/.localdocker-host"` = "0" ]
+setup_etc_host() {
+  if [ -f "$DOCKER_VM_CWD/.localdocker-host" ] && [ `cat "$DOCKER_VM_CWD/.localdocker-host"` = "0" ]
   then
     return
   fi
@@ -53,14 +68,14 @@ function setup_etc_host {
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
       sudo sh -c "echo '$DOCKER_IP $DOCKER_DOMAIN' >> /etc/hosts"
-      echo -n 1 > "$VAGRANT_CWD/.localdocker-host" # We need to check the /etc/hosts at each launch
+      echo -n 1 > "$DOCKER_VM_CWD/.localdocker-host" # We need to check the /etc/hosts at each launch
     else
-      echo -n 0 > "$VAGRANT_CWD/.localdocker-host" # We never check the /etc/hosts at launch
+      echo -n 0 > "$DOCKER_VM_CWD/.localdocker-host" # We never check the /etc/hosts at launch
     fi
   fi
 }
 
-function help() {
+help() {
   echo "docker-osx commands:"
   echo "    start     Start local docker virtual machine"
   echo "    destroy   Destroy local docker virtual machine"
@@ -70,74 +85,177 @@ function help() {
   echo ""
 }
 
-function start_vm() {
-    # Start virtual machine if it isn't running
-    if ! vagrant status | grep -q running
-    then
-      if [[ $1 == "halt" ]]
-      then
-        echo "Docker is not running. Exiting"
-        exit 0
-      fi
-      echo "Start Docker Virtual machine"
-      vagrant up
-      vagrant ssh -c "sudo stop docker; sudo start docker"
-    fi
-
-
-    # Update Docker on virtual machine if it needs updating
-    if [[ $INSTALLED_DOCKER_VERSION != $DOCKER_VERSION ]]
-    then
-      vagrant provision
-      vagrant ssh -c "sudo stop docker; sudo start docker"
-    fi
+boot2docker_get_latest_release_name() {
+  curl 'https://api.github.com/repos/steeve/boot2docker/releases' 2>/dev/null | grep "tag_name" | awk '{print $2}' | sed 's/[",]*//g' | head -1
 }
 
-############
+boot2docker_download_latest() {
+  LATEST_RELEASE=`boot2docker_get_latest_release_name`
+  log "Latest boot2docker version is $LATEST_RELEASE, downloading..."
+  curl -L -o "${DOCKER_VM_CWD}/boot2docker.iso" "https://github.com/steeve/boot2docker/releases/download/$LATEST_RELEASE/boot2docker.iso"
+  log "Done"
+}
+
+init() {
+  VM_MEM=1024
+  VM_OSTYPE=Linux26_64
+  VM_NIC=82540EM
+  VM_DISK=./boot2docker.vmdk
+  VM_DISK_SIZE=40000
+  VM_CPUS=`sysctl -n hw.physicalcpu`
+  BOOT2DOCKER_ISO="${DOCKER_VM_CWD}/boot2docker.iso"
+
+  log "Creating VM $DOCKER_VM_NAME"
+  $VBM createvm --name $DOCKER_VM_NAME --register
+
+  log "Setting VM settings"
+  $VBM modifyvm $DOCKER_VM_NAME \
+    --ostype $VM_OSTYPE \
+    --cpus $VM_CPUS \
+    --memory $VM_MEM \
+    --acpi on \
+    --hpet on \
+    --hwvirtex on \
+    --firmware bios \
+    --bioslogofadein off --bioslogofadeout off --bioslogodisplaytime 0 --biosbootmenu disabled \
+    --boot1 dvd
+
+  log "Setting VM networking"
+  $VBM modifyvm $DOCKER_VM_NAME \
+    --nic1 nat \
+    --nictype1 $VM_NIC \
+    --cableconnected1 on
+
+  # log "Deleting VM NAT"
+  # $VBM modifyvm $DOCKER_VM_NAME \
+    # --natpf1 delete "ssh" \
+    # --natpf1 delete "docker"
+
+  log "Creating VM NAT"
+  $VBM modifyvm $DOCKER_VM_NAME \
+    --natpf1 "ssh,tcp,127.0.0.1,$DOCKER_VM_SSH_PORT,,22" \
+    --natpf1 "docker,tcp,127.0.0.1,$DOCKER_PORT,,$DOCKER_PORT"
+
+  if [ ! -e $BOOT2DOCKER_ISO ]; then
+    log "boot2docker.iso not found."
+    boot2docker_download_latest
+  fi
+
+  log "Setting VM disks"
+  # $VBM storagectl $DOCKER_VM_NAME --name "SATA" --remove
+
+  if [ -f $VM_DISK ]; then
+    log "$VM_DISK was open, closing"
+    $VBM closemedium disk $VM_DISK
+  else
+    log "Creating $VM_DISK_SIZE hard drive..."
+    $VBM createhd --format VMDK --filename $VM_DISK --size $VM_DISK_SIZE
+  fi
+
+  $VBM storagectl $DOCKER_VM_NAME --name "SATA" --add sata --hostiocache on
+  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 0 --device 0 --type dvddrive --medium $BOOT2DOCKER_ISO
+  $VBM storageattach $DOCKER_VM_NAME --storagectl "SATA" --port 1 --device 0 --type hdd --medium $VM_DISK
+
+  log "Done."
+}
+
+delete() {
+  log "Deleting VM ${DOCKER_VM_NAME}"
+  $VBM unregistervm $DOCKER_VM_NAME --delete
+
+  log "Remove SSH key fingerprint for VM"
+  ssh-keygen -R '[localhost]:2022' >/dev/null 2>&1
+}
+
+do_ssh() {
+  ssh -p $DOCKER_VM_SSH_PORT docker@localhost
+}
+
+start() {
+  if ! is_running; then
+      if is_paused; then
+        log "Resuming $DOCKER_VM_NAME"
+        $VBM controlvm $DOCKER_VM_NAME resume > /dev/null
+        wait_vm
+        log "Resumed."
+      else
+        log "Starting $DOCKER_VM_NAME..."
+        $VBM startvm $DOCKER_VM_NAME --type headless > /dev/null &
+        wait_vm
+        log "Started."
+    fi
+  else
+    log "$DOCKER_VM_NAME is already running."
+  fi
+}
+
+wait_vm() {
+  while ! echo "ping" | nc localhost $DOCKER_VM_SSH_PORT >/dev/null 2>&1; do
+    sleep 1
+  done
+}
+
+pause() {
+  if is_running; then
+    log "Pausing $DOCKER_VM_NAME..."
+    $VBM controlvm $DOCKER_VM_NAME pause > /dev/null
+  else
+    log "$DOCKER_VM_NAME is not running."
+  fi
+}
+
+stop() {
+  if is_running; then
+    log "Shutting down $DOCKER_VM_NAME..."
+    $VBM controlvm $DOCKER_VM_NAME poweroff > /dev/null
+  else
+    log "$DOCKER_VM_NAME is not running."
+  fi
+}
+
+restart() {
+  if is_running; then
+    stop && sleep 1 && start
+  else
+    start
+  fi
+}
+
+info() {
+  $VBM showvminfo $DOCKER_VM_NAME
+}
+
+is_running() {
+  info | grep "State:\s\+running" > /dev/null
+}
+
+is_paused() {
+  info | grep "State:\s\+paused" > /dev/null
+}
+
+is_stopped() {
+  info | grep "State:\s\+powered off" > /dev/null
+}
+
+status() {
+  if is_running; then
+    log "$DOCKER_VM_NAME is running."
+    exit 0
+  elif is_paused; then
+    log "$DOCKER_VM_NAME is suspended."
+    exit 1
+  else
+    log "$DOCKER_VM_NAME is stopped."
+    exit 1
+  fi
+}
 
 # Determine currently installed version of Docker
 INSTALLED_DOCKER_VERSION=""
-if [ -f $VAGRANT_CWD/.docker-version ]
+if [ -f $DOCKER_VM_CWD/.docker-version ]
 then
-  INSTALLED_DOCKER_VERSION=`cat $VAGRANT_CWD/.docker-version`
+  INSTALLED_DOCKER_VERSION=`cat $DOCKER_VM_CWD/.docker-version`
 fi
-
-# Check that dependencies are installed
-if ! hash vagrant 2>/dev/null
-then
-  echo "Error: you need to install Vagrant before you can use docker-osx"
-  echo "You can download it at http://www.vagrantup.com/"
-  exit 1
-fi
-
-# Set up Vagrant directory
-if [ ! -d "$VAGRANT_CWD" ]
-then
-  mkdir "$VAGRANT_CWD"
-fi
-
-cat > "$VAGRANT_CWD/Vagrantfile" <<EOL
-# automatically generated by docker-osx
-Vagrant.configure("2") do |config|
-  config.vm.box = "docker-0.7.2"
-  config.vm.box_url = "$VAGRANT_BOX_URL"
-
-  config.ssh.forward_agent = true
-  config.vm.network "private_network", :ip => "$DOCKER_IP"
-  config.vm.provision :shell, :inline => "apt-get update; apt-get install -y lxc-docker=$DOCKER_VERSION"
-  config.vm.provision :shell, :inline => "echo 'export DOCKER_OPTS=\"-H unix:///var/run/docker.sock -H tcp://0.0.0.0:$DOCKER_PORT\"' >> /etc/default/docker"
-  config.vm.synced_folder "$(echo ~)", "$(echo ~)", :create => true
-
-  config.vm.provider :virtualbox do |vb|
-    vb.customize ['modifyvm', :id, '--memory', ENV['VM_MEMORY'] || 1024]
-    vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
-    vb.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
-  end
-
-  vagrantfile_extra = "#{ENV['VAGRANT_CWD']}/Vagrantfile_extra.rb"
-  eval File.open(vagrantfile_extra).read if File.exists?(vagrantfile_extra)
-end
-EOL
 
 setup_etc_host
 
@@ -145,7 +263,7 @@ setup_etc_host
 if [[ ! -f "$DOCKER_BIN" || $INSTALLED_DOCKER_VERSION != $DOCKER_VERSION ]]
 then
   echo "Installing Docker $DOCKER_VERSION client..."
-  mkdir -p "$VAGRANT_CWD/bin"
+  mkdir -p "$DOCKER_VM_CWD/bin"
   curl "$DOCKER_CLIENT_URL" > /tmp/docker-osx-client.tgz
   tar -xzf /tmp/docker-osx-client.tgz -C "$(dirname $DOCKER_BIN)" usr/local/bin/docker
   mv "$(dirname $DOCKER_BIN)/usr/local/bin/docker" "$DOCKER_BIN"
@@ -153,44 +271,135 @@ then
   chmod +x "$DOCKER_BIN"
 fi
 
-
 # Set current installed Docker version
-echo $DOCKER_VERSION > $VAGRANT_CWD/.docker-version
+echo $DOCKER_VERSION > $DOCKER_VM_CWD/.docker-version
 
-case "$1" in
-  start)
-    start_vm
-    echo "If you want to connect to docker pass argument -H=$DOCKER_HOST"
-    echo "Or export DOCKER_HOST=$DOCKER_HOST"
-    exit 0
-    ;;
-  destroy)
-    vagrant destroy
-    exit 0
-    ;;
-  ssh)
-    start_vm
-    vagrant ssh
-    exit 0
-    ;;
-  halt)
-    vagrant halt
-    exit 0
-    ;;
-  help)
-    help
-    exit 0
-    ;;
-  "")
-    help
-    exit 0
-    ;;
-  shell)
-    echo "Start local docker environnement"
-    start_vm
-    $SHELL
-    echo "Stop local docker environnement"
-    vagrant halt
-    exit 0
-    ;;
+case $1 in
+    init | setup) init;;
+    start | up) start;;
+    pause | suspend) pause;;
+    stop | halt | down) stop;;
+    restart) restart;;
+    status) status;;
+    info) info;;
+    delete) delete;;
+    ssh) do_ssh;;
+    download) download_latest;;
+    *) echo "Usage $0 {init|start|up|pause|stop|restart|status|info|delete|ssh|download}"; exit 1
 esac
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# function start_vm() {
+#     # Start virtual machine if it isn't running
+#     if ! vagrant status | grep -q running
+#     then
+#       if [[ $1 == "halt" ]]
+#       then
+#         echo "Docker is not running. Exiting"
+#         exit 0
+#       fi
+#       echo "Start Docker Virtual machine"
+#       vagrant up
+#       vagrant ssh -c "sudo stop docker; sudo start docker"
+#     fi
+#
+#
+#     # Update Docker on virtual machine if it needs updating
+#     if [[ $INSTALLED_DOCKER_VERSION != $DOCKER_VERSION ]]
+#     then
+#       vagrant provision
+#       vagrant ssh -c "sudo stop docker; sudo start docker"
+#     fi
+# }
+
+############
+
+
+#
+# # Set up Vagrant directory
+# if [ ! -d "$DOCKER_VM_CWD" ]
+# then
+#   mkdir "$DOCKER_VM_CWD"
+# fi
+#
+# cat > "$DOCKER_VM_CWD/Vagrantfile" <<EOL
+# # automatically generated by docker-osx
+# Vagrant.configure("2") do |config|
+#   config.vm.box = "docker-0.7.2"
+#   config.vm.box_url = "$VAGRANT_BOX_URL"
+#
+#   config.ssh.forward_agent = true
+#   config.vm.network "private_network", :ip => "$DOCKER_IP"
+#   config.vm.provision :shell, :inline => "apt-get update; apt-get install -y lxc-docker=$DOCKER_VERSION"
+#   config.vm.provision :shell, :inline => "echo 'export DOCKER_OPTS=\"-H unix:///var/run/docker.sock -H tcp://0.0.0.0:$DOCKER_PORT\"' >> /etc/default/docker"
+#   config.vm.synced_folder "$(echo ~)", "$(echo ~)", :create => true
+#
+#   config.vm.provider :virtualbox do |vb|
+#     vb.customize ['modifyvm', :id, '--memory', ENV['VM_MEMORY'] || 1024]
+#     vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
+#     vb.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
+#   end
+#
+#   vagrantfile_extra = "#{ENV['DOCKER_VM_CWD']}/Vagrantfile_extra.rb"
+#   eval File.open(vagrantfile_extra).read if File.exists?(vagrantfile_extra)
+# end
+# EOL
+
+
+# case "$1" in
+#   start)
+#     start_vm
+#     echo "If you want to connect to docker pass argument -H=$DOCKER_HOST"
+#     echo "Or export DOCKER_HOST=$DOCKER_HOST"
+#     exit 0
+#     ;;
+#   destroy)
+#     vagrant destroy
+#     exit 0
+#     ;;
+#   ssh)
+#     start_vm
+#     vagrant ssh
+#     exit 0
+#     ;;
+#   halt)
+#     vagrant halt
+#     exit 0
+#     ;;
+#   help)
+#     help
+#     exit 0
+#     ;;
+#   "")
+#     help
+#     exit 0
+#     ;;
+#   shell)
+#     echo "Start local docker environnement"
+#     start_vm
+#     $SHELL
+#     echo "Stop local docker environnement"
+#     vagrant halt
+#     exit 0
+#     ;;
+# esac
