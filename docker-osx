@@ -20,8 +20,6 @@
 
 set -e
 
-export DOCKER_IP="172.16.42.43"
-export DOCKER_DOMAIN="localdocker"
 export DOCKER_PORT="4243"
 
 export DOCKER_VERSION="0.7.3"
@@ -49,32 +47,6 @@ if [ ! -d $DOCKER_VM_CWD ]; then
   log "Creating ${DOCKER_VM_CWD}"
   mkdir -p "$DOCKER_VM_CWD"
 fi
-
-setup_etc_host() {
-  if [ -f "$DOCKER_VM_CWD/.localdocker-host" ] && [ `cat "$DOCKER_VM_CWD/.localdocker-host"` = "0" ]
-  then
-    return
-  fi
-  if ! grep -q localdocker /etc/hosts
-  then
-    echo "Adding localdocker to /etc/hosts (may need your password for sudo)..."
-
-    echo "If you want you can add it manually by adding:"
-    echo "$DOCKER_IP localdocker add the end of the /etc/hosts"
-    echo ""
-    echo "Or you can just ignore it and directly use the ip: $DOCKER_IP"
-
-    read -p "Add the localdocker host to system configuration? [y/n] " -n 1 -r
-    echo    # move to a new line
-    if [[ $REPLY =~ ^[Yy]$ ]]
-    then
-      sudo sh -c "echo '$DOCKER_IP $DOCKER_DOMAIN' >> /etc/hosts"
-      echo -n 1 > "$DOCKER_VM_CWD/.localdocker-host" # We need to check the /etc/hosts at each launch
-    else
-      echo -n 0 > "$DOCKER_VM_CWD/.localdocker-host" # We never check the /etc/hosts at launch
-    fi
-  fi
-}
 
 help() {
   echo "docker-osx commands:"
@@ -265,8 +237,6 @@ if [ -f $DOCKER_VM_CWD/.docker-version ]
 then
   INSTALLED_DOCKER_VERSION=`cat $DOCKER_VM_CWD/.docker-version`
 fi
-
-setup_etc_host
 
 # Download Docker client if it doesn't exist or needs updating
 if [[ ! -f "$DOCKER_BIN" || $INSTALLED_DOCKER_VERSION != $DOCKER_VERSION ]]
