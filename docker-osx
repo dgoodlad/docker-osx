@@ -51,7 +51,7 @@ fi
 help() {
   echo "docker-osx commands:"
   echo "    start [--pristine]    Start local docker virtual machine"
-  echo "    stop                  Halt docker daemon and virtual machine"
+  echo "    stop  [--delete]      Halt docker daemon and virtual machine"
   echo "    info                  VirtualBox virtual machine information"
   echo "    shell                 Open a shell with Docker VM started and environnement set"
   echo ""
@@ -128,8 +128,12 @@ init() {
 }
 
 delete() {
-  log "Deleting VM ${DOCKER_VM_NAME}"
-  $VBM unregistervm $DOCKER_VM_NAME --delete
+  if vm_exists; then
+    log "Deleting VM ${DOCKER_VM_NAME}"
+    $VBM unregistervm $DOCKER_VM_NAME --delete >/dev/null
+  else
+    log "The VM doesn't exist"
+  fi
 
   log "Remove SSH key fingerprint for VM"
   ssh-keygen -R '[localhost]:2022' >/dev/null 2>&1
@@ -171,6 +175,10 @@ stop() {
     $VBM controlvm $DOCKER_VM_NAME poweroff > /dev/null
   else
     log "$DOCKER_VM_NAME is not running."
+  fi
+
+  if [ $# -eq 1 ] && [ "$1" = "--delete" ]; then
+    delete
   fi
 }
 
@@ -223,11 +231,11 @@ fi
 echo $DOCKER_VERSION > $DOCKER_VM_CWD/.docker-version
 
 case $1 in
-  start) start;;
-  stop) stop;;
-  status) status;;
+  start) shift; start "$@" ;;
+  stop) shift; stop "$@" ;;
+
   info) info;;
-  delete) delete;;
+
   shell) do_ssh;;
   help) help;;
   *) do_ssh "docker $@"
