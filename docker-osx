@@ -22,8 +22,8 @@ set -e
 
 export DOCKER_PORT="4243"
 
-export DOCKER_VERSION="0.7.3"
-export DOCKER_CLIENT_URL="http://get.docker.io/builds/Darwin/x86_64/docker-0.7.3.tgz"
+export DOCKER_VERSION="0.7.5"
+export DOCKER_CLIENT_URL="http://get.docker.io/builds/Darwin/x86_64/docker-0.7.5.tgz"
 
 export DOCKER_VM_NAME="docker-boot2docker"
 export DOCKER_VM_SSH_PORT="2022"
