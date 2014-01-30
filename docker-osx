@@ -244,5 +244,5 @@ case $1 in
 
   help) help;;
 
-  *) ./docker -H "$DOCKER_HOST" "$@";;
+  *) start && ./docker -H "$DOCKER_HOST" "$@";;
 esac
