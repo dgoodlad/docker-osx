@@ -1,24 +1,7 @@
 #!/bin/bash
-#
-# docker-osx
-# ==========
-#
-# Easy installation of Docker on OS X
-# https://github.com/noplay/docker-osx
-#
-# Copyright 2013 Julien Duponchelle
-#
-# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
-# file except in compliance with the License. You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software distributed under
-# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
-# either express or implied. See the License for the specific language governing permissions
-# and limitations under the License.
 
 set -e
+set -x
 
 export DOCKER_PORT="4243"
 
@@ -31,7 +14,8 @@ export DOCKER_VM_CWD="$HOME/.docker-osx"
 
 export VBM="VBoxManage"
 
-export DOCKER_BIN="$(dirname $0)/docker"
+export DOCKER_BIN_DIR=$(pwd -P "./../vendor/bin")
+export DOCKER_BIN="${DOCKER_BIN_DIR}/docker"
 export DOCKER_HOST="tcp://localhost:$DOCKER_PORT"
 
 log() {
@@ -225,9 +209,9 @@ then
   echo "Installing Docker $DOCKER_VERSION client..."
   mkdir -p "$DOCKER_VM_CWD/bin"
   curl "$DOCKER_CLIENT_URL" > /tmp/docker-osx-client.tgz
-  tar -xzf /tmp/docker-osx-client.tgz -C "$(dirname $DOCKER_BIN)" usr/local/bin/docker
-  mv "$(dirname $DOCKER_BIN)/usr/local/bin/docker" "$DOCKER_BIN"
-  rm -rf "$(dirname $DOCKER_BIN)/usr"
+  tar -xzf /tmp/docker-osx-client.tgz -C "$DOCKER_BIN_DIR" usr/local/bin/docker
+  mv "${DOCKER_BIN_DIR}/usr/local/bin/docker" "$DOCKER_BIN"
+  rm -rf "${DOCKER_BIN_DIR}/usr"
   chmod +x "$DOCKER_BIN"
 fi
 
@@ -244,5 +228,5 @@ case $1 in
 
   help) help;;
 
-  *) start && ./docker -H "$DOCKER_HOST" "$@";;
+  *) start && $DOCKER_BIN -H "$DOCKER_HOST" "$@";;
 esac
