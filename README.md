@@ -16,7 +16,13 @@ Let's build a base image!
 
 Hey you should now have an image, neato!
 
+Want to save that image locally for re-use later?
+
+1. `docker save precise/base > precise-base.tar.gz`
+
 ## Hard Disk Persistence using Virtualbox
+
+The default boot2docker disk is a bit small. We create a 40G space for you in VBox, but you need to take advantage of it with the following if you have a larger build:
 
 ```
 sudo -s
