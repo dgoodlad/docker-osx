@@ -2,7 +2,7 @@
 
 set -e
 
-unalias docker
+unalias docker 2>/dev/null || true
 
 export DOCKER_PORT="4243"
 
@@ -218,8 +218,6 @@ fi
 
 # Set current installed Docker version
 echo $DOCKER_VERSION > $DOCKER_VM_CWD/.docker-version
-
-echo "$@"
 
 case $1 in
   start) shift; start "$@" ;;
