@@ -53,3 +53,18 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+# Hard Disk Persistence using Virtualbox
+
+```
+sudo -s
+fdisk /dev/sda
+n      # new primary partition
+p
+1      # first partition
+Enter  # default start
+Enter  # default end
+w      # write partition table and quit
+mkfs.ext4 /dev/sda1
+reboot
+```
