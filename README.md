@@ -8,6 +8,29 @@ Docker on OS X in three steps:
 
 See `bin/docker help` for help specific to this command.
 
+## Example
+
+Let's build a base image!
+
+1. `docker build -t precise/base ./base-image`
+
+Hey you should now have an image, neato!
+
+## Hard Disk Persistence using Virtualbox
+
+```
+sudo -s
+fdisk /dev/sda
+n      # new primary partition
+p
+1      # first partition
+Enter  # default start
+Enter  # default end
+w      # write partition table and quit
+mkfs.ext4 /dev/sda1
+reboot
+```
+
 ## Contributors
 
 * [Will Farrington](https://github.com/wfarr) - all the new shiny stuff here!
@@ -53,18 +76,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-# Hard Disk Persistence using Virtualbox
-
-```
-sudo -s
-fdisk /dev/sda
-n      # new primary partition
-p
-1      # first partition
-Enter  # default start
-Enter  # default end
-w      # write partition table and quit
-mkfs.ext4 /dev/sda1
-reboot
-```
