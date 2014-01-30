@@ -1,1 +1,2 @@
-/docker
+/boot2docker.vmdk
+/vendor/bin/docker
