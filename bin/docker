@@ -60,6 +60,7 @@ init() {
   VM_OSTYPE=Linux26_64
   VM_NIC=82540EM
   VM_DISK=./boot2docker.vmdk
+  VM_DISK_GZ=./boot2docker.vmdk.gz
   VM_DISK_SIZE=40000
   VM_CPUS=`sysctl -n hw.physicalcpu`
   BOOT2DOCKER_ISO="${DOCKER_VM_CWD}/boot2docker.iso"
@@ -101,8 +102,13 @@ init() {
     log "$VM_DISK was open, closing"
     $VBM closemedium disk $VM_DISK
   else
-    log "Creating $VM_DISK_SIZE hard drive..."
-    $VBM createhd --format VMDK --filename $VM_DISK --size $VM_DISK_SIZE >/dev/null 2>&1
+    if [ -f $VM_DISK_GZ ]; then
+      log "Extracting $VM_DISK_GZ"
+      gunzip -c $VM_DISK_GZ > $VM_DISK
+    else
+      log "Creating $VM_DISK_SIZE hard drive..."
+      $VBM createhd --format VMDK --filename $VM_DISK --size $VM_DISK_SIZE >/dev/null 2>&1
+    fi
   fi
 
   $VBM storagectl $DOCKER_VM_NAME --name "SATA" --add sata --hostiocache on >/dev/null 2>&1
