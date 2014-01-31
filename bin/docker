@@ -126,7 +126,7 @@ delete() {
 
 do_ssh() {
   start
-  ssh -p $DOCKER_VM_SSH_PORT docker@localhost "$@"
+  ssh -o 'StrictHostKeyChecking no' -p $DOCKER_VM_SSH_PORT docker@localhost "$@"
 }
 
 start() {
