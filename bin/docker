@@ -7,7 +7,7 @@ unalias docker 2>/dev/null || true
 export DOCKER_PORT="4243"
 
 export DOCKER_VERSION="0.7.5"
-export DOCKER_CLIENT_URL="http://get.docker.io/builds/Darwin/x86_64/docker-0.7.5.tgz"
+export DOCKER_CLIENT_URL="https://s3.amazonaws.com/devtable-public/docker/v0.7.5/docker"
 
 export DOCKER_VM_NAME="docker-boot2docker"
 export DOCKER_VM_SSH_PORT="2022"
@@ -209,10 +209,7 @@ if [[ ! -f "$DOCKER_BIN" || $INSTALLED_DOCKER_VERSION != $DOCKER_VERSION ]]
 then
   echo "Installing Docker $DOCKER_VERSION client..."
   mkdir -p "$DOCKER_VM_CWD/bin"
-  curl "$DOCKER_CLIENT_URL" > /tmp/docker-osx-client.tgz
-  tar -xzf /tmp/docker-osx-client.tgz -C "$DOCKER_BIN_DIR" usr/local/bin/docker
-  mv "${DOCKER_BIN_DIR}/usr/local/bin/docker" "$DOCKER_BIN"
-  rm -rf "${DOCKER_BIN_DIR}/usr"
+  curl "$DOCKER_CLIENT_URL" > "$DOCKER_BIN"
   chmod +x "$DOCKER_BIN"
 fi
 
